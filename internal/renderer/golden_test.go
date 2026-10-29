@@ -29,7 +29,6 @@ func TestRenderGoldenFullFormatTopLevelOrder(t *testing.T) {
 		"unified-delay:",
 		"tcp-concurrent:",
 		"find-process-mode:",
-		"global-client-fingerprint:",
 		"dns:",
 		"profile:",
 		"sniffer:",

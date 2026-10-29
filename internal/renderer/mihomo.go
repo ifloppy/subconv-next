@@ -363,7 +363,7 @@ func NormalizeRenderOptions(opts model.RenderOptions) model.RenderOptions {
 	opts.UnifiedDelay = true
 	opts.TCPConcurrent = false
 	opts.FindProcessMode = "strict"
-	opts.GlobalClientFingerprint = "chrome"
+	opts.GlobalClientFingerprint = strings.TrimSpace(opts.GlobalClientFingerprint)
 	opts.NameOptions.KeepRawName = true
 	if !opts.SourcePrefix {
 		opts.NameOptions.SourcePrefixMode = "none"
@@ -410,6 +410,7 @@ func RenderMihomo(nodes []model.NodeIR, opts model.RenderOptions) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
+	applyDefaultClientFingerprints(proxies, opts.GlobalClientFingerprint)
 	resolvedEnabledRules := resolveEnabledRules(opts.RuleMode, opts.EnabledRules)
 
 	cfg := mihomoConfig{
@@ -569,6 +570,31 @@ func buildProxies(nodes []model.NodeIR) ([]mihomoProxy, error) {
 	return proxies, nil
 }
 
+// The removed global-client-fingerprint setting must be applied to individual
+// TLS proxy entries instead. Explicit upstream fingerprints always win.
+func applyDefaultClientFingerprints(proxies []mihomoProxy, fallback string) {
+	fallback = strings.TrimSpace(fallback)
+	if fallback == "" {
+		return
+	}
+	for i := range proxies {
+		proxy := &proxies[i]
+		if strings.TrimSpace(proxy.ClientFingerprint) != "" {
+			continue
+		}
+		switch proxy.Type {
+		case "vmess", "vless":
+			if !proxy.TLS {
+				continue
+			}
+		case "trojan", "anytls":
+		default:
+			continue
+		}
+		proxy.ClientFingerprint = fallback
+	}
+}
+
 func buildProxy(node model.NodeIR) (mihomoProxy, error) {
 	proxy := mihomoProxy{
 		Name:   node.Name,
@@ -621,6 +647,7 @@ func buildProxy(node model.NodeIR) (mihomoProxy, error) {
 		proxy.Password = node.Auth.Password
 		proxy.Network = node.Transport.Network
 		proxy.TLS = true
+		proxy.ClientFingerprint = node.TLS.ClientFingerprint
 		proxy.SNI = node.TLS.SNI
 		proxy.ALPN = node.TLS.ALPN
 		proxy.SkipCertVerify = boolPointerIfTrue(node.TLS.Insecure)
@@ -2010,9 +2037,6 @@ func renderConfig(cfg mihomoConfig) ([]byte, error) {
 	addSection("tcp-concurrent", scalarNode(cfg.TCPConcurrent))
 	if cfg.FindProcessMode != "" {
 		addSection("find-process-mode", scalarNode(cfg.FindProcessMode))
-	}
-	if cfg.GlobalClientFingerprint != "" {
-		addSection("global-client-fingerprint", scalarNode(cfg.GlobalClientFingerprint))
 	}
 	if cfg.DNS != nil {
 		addSection("dns", buildDNSNode(*cfg.DNS))

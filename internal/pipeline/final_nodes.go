@@ -61,6 +61,20 @@ func BuildFinalNodes(cfg model.Config, state model.NodeState, rawNodes []model.N
 
 	deduped = applyNodeOverrides(deduped, state.NodeOverrides)
 
+	// Overrides can change protocol parameters after the initial illegal-node filter.
+	// Recheck the effective configuration before it reaches the renderer.
+	if cfg.Render.FilterIllegal {
+		valid := make([]model.NodeIR, 0, len(deduped))
+		for _, node := range deduped {
+			if !isRenderableNode(node) {
+				auditExclude(&audit, node, "invalid_node")
+				continue
+			}
+			valid = append(valid, node)
+		}
+		deduped = valid
+	}
+
 	disabledSet := model.DisabledNodeSet(state.DisabledNodes)
 	deletedSet := model.DisabledNodeSet(state.DeletedNodes)
 

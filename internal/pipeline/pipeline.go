@@ -449,8 +449,20 @@ func isRenderableNode(node model.NodeIR) bool {
 		return strings.TrimSpace(node.Auth.UUID) != ""
 	case model.ProtocolVLESS:
 		return strings.TrimSpace(node.Auth.UUID) != ""
-	case model.ProtocolTrojan, model.ProtocolHysteria, model.ProtocolHysteria2, model.ProtocolAnyTLS:
+	case model.ProtocolTrojan, model.ProtocolHysteria, model.ProtocolAnyTLS:
 		return strings.TrimSpace(node.Auth.Password) != ""
+	case model.ProtocolHysteria2:
+		if strings.TrimSpace(node.Auth.Password) == "" {
+			return false
+		}
+		obfs := rawNodeString(node.Raw, "obfs")
+		if obfs == "" {
+			return true
+		}
+		if obfs != "salamander" && obfs != "gecko" {
+			return false
+		}
+		return rawNodeString(node.Raw, "obfsPassword") != ""
 	case model.ProtocolTUIC:
 		return strings.TrimSpace(node.Auth.UUID) != "" && strings.TrimSpace(node.Auth.Password) != ""
 	case model.ProtocolMieru:
